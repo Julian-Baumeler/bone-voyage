@@ -8,29 +8,37 @@ It is a modern, macOS-friendly successor spirit to [MITK-GEM](https://github.com
 
 **Live UI (GitHub Pages):** [julian-baumeler.github.io/bone-voyage](https://julian-baumeler.github.io/bone-voyage/)
 
-The hosted page is the real Three.js UI. Processing stays on your machine — start the engine below, keep this tab open, and the page talks to `http://127.0.0.1:8742`.
+The hosted page is the real Three.js UI. Processing stays on your machine — the page can **download the local engine**, you start it once, and it auto-connects to `http://127.0.0.1:8742`.
 
-## Quick start
+## Quick start (easiest)
+
+1. Open **[the website](https://julian-baumeler.github.io/bone-voyage/)**.
+2. Click **Get engine** → **Download engine (.zip)**, *or* run the one-liner below.
+3. Install + start:
+
+```bash
+# one-shot install into ~/bone-voyage
+curl -fsSL https://raw.githubusercontent.com/Julian-Baumeler/bone-voyage/main/scripts/install-engine.sh | bash
+
+# then start (leave this terminal open)
+~/bone-voyage/start-engine.sh
+```
+
+4. Return to the website — it polls until the engine is online, then drop a CT.
+
+Data stays on your machine (`~/.opengem/`). Research use only — not for diagnosis or treatment.
+
+### From a clone
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pip install PyMaxflow   # optional, for GraphCut
-
-opengem serve
-# → http://127.0.0.1:8742  (or open the GitHub Pages UI + this backend)
+bash scripts/start-engine.sh
+# → http://127.0.0.1:8742
 ```
 
-Data stays on your machine (`~/.opengem/projects/`). Research use only — not for diagnosis or treatment.
-
-### Hosted UI + local engine
-
-1. Open the [GitHub Pages app](https://julian-baumeler.github.io/bone-voyage/).
-2. Run `opengem serve` in a clone of this repo.
-3. Refresh the Pages tab — status should show version + “drop a CT…”.
-
-Override the API URL with `?api=http://host:port` if needed.
+Optional: `pip install PyMaxflow` for GraphCut. Override API with `?api=http://host:port`.
 
 ## What it does
 

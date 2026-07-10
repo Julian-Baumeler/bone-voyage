@@ -23,12 +23,79 @@
         <span class="logo">Bone Voyage</span>
         <span class="tag">CT → FE model · local engine</span>
       </div>
-      <span id="status" class="status muted">Ready</span>
+      <div class="topbar-right">
+        <button type="button" class="btn-chip" id="btn-engine-setup" title="Download / start local compute">Get engine</button>
+        <span id="engine-dot" class="engine-dot offline" title="Local engine status"></span>
+        <span id="status" class="status muted">Ready</span>
+      </div>
     </header>
     <div id="backend-banner" class="backend-banner hidden" role="status"></div>
     <div class="disclaimer">
       Research use only. Green paint = <strong>only that region</strong> (grows a few mm in 3D).
       Not the whole hip/femur. Paint on 1+ slices if you need more coverage.
+      CT data stays on your machine via the local engine.
+    </div>
+
+    <!-- Setup when engine offline (esp. GitHub Pages) -->
+    <div id="engine-setup" class="engine-setup hidden" role="dialog" aria-labelledby="engine-setup-title">
+      <div class="engine-setup-card">
+        <h1 id="engine-setup-title">Get the local engine</h1>
+        <p class="engine-lead">
+          This website is only the UI. Heavy CT work runs on a small program on
+          <strong>your computer</strong> — nothing is uploaded. Download once, start it,
+          then come back here (this page auto-connects).
+        </p>
+
+        <ol class="engine-steps">
+          <li>
+            <div class="step-head"><span class="step-n">1</span> Download the engine</div>
+            <p class="help">Source package from GitHub (Python project + install scripts).</p>
+            <div class="btn-row">
+              <a class="btn primary" id="btn-download-zip" href="#" download>Download engine (.zip)</a>
+              <a class="btn" id="link-repo" href="#" target="_blank" rel="noopener">Open GitHub repo</a>
+            </div>
+          </li>
+          <li>
+            <div class="step-head"><span class="step-n">2</span> Install (one command)</div>
+            <p class="help">macOS / Linux with Python 3.11+. Unzip is optional if you use the curl installer.</p>
+            <div class="code-block">
+              <code id="install-oneliner">curl -fsSL … | bash</code>
+              <button type="button" class="btn-copy" data-copy="install-oneliner" title="Copy">Copy</button>
+            </div>
+            <p class="help muted-sm">Or after unzipping the download:</p>
+            <div class="code-block">
+              <code id="install-local">cd bone-voyage-main &amp;&amp; bash scripts/install-engine.sh</code>
+              <button type="button" class="btn-copy" data-copy="install-local" title="Copy">Copy</button>
+            </div>
+          </li>
+          <li>
+            <div class="step-head"><span class="step-n">3</span> Start the engine</div>
+            <p class="help">Leave the terminal open. Default: <code>http://127.0.0.1:8742</code></p>
+            <div class="code-block">
+              <code id="start-cmd">~/bone-voyage/start-engine.sh</code>
+              <button type="button" class="btn-copy" data-copy="start-cmd" title="Copy">Copy</button>
+            </div>
+          </li>
+          <li>
+            <div class="step-head"><span class="step-n">4</span> Connect</div>
+            <p class="help" id="connect-help">Waiting for the engine… polling every few seconds.</p>
+            <div class="btn-row">
+              <button type="button" class="btn primary" id="btn-check-engine">Check connection now</button>
+              <button type="button" class="btn" id="btn-dismiss-setup">Use app anyway</button>
+            </div>
+            <p class="engine-poll" id="engine-poll-status">Not connected yet.</p>
+          </li>
+        </ol>
+
+        <details class="engine-advanced">
+          <summary>Advanced</summary>
+          <label>API URL
+            <input type="url" id="api-url-input" placeholder="http://127.0.0.1:8742" />
+          </label>
+          <button type="button" class="btn" id="btn-apply-api">Use this API URL</button>
+          <p class="help">Or open the site with <code>?api=http://host:port</code></p>
+        </details>
+      </div>
     </div>
 
     <main class="simple-layout">

@@ -44,7 +44,21 @@ function resolveApiBase() {
   return local ? "" : "http://127.0.0.1:8742";
 }
 
-const API_BASE = resolveApiBase();
+/** Mutable so Advanced “API URL” can re-point without full reload. */
+let API_BASE = resolveApiBase();
+
+const REPO = "Julian-Baumeler/bone-voyage";
+const ENGINE = {
+  zip: `https://github.com/${REPO}/archive/refs/heads/main.zip`,
+  repo: `https://github.com/${REPO}`,
+  installRaw: `https://raw.githubusercontent.com/${REPO}/main/scripts/install-engine.sh`,
+  pages: `https://julian-baumeler.github.io/bone-voyage/`,
+  defaultApi: "http://127.0.0.1:8742",
+};
+
+let engineOnline = false;
+let enginePollTimer = null;
+let setupDismissed = false;
 
 function apiUrl(path) {
   if (!path) return API_BASE || "/";
@@ -59,18 +73,242 @@ function setStatus(msg, kind = "") {
   el.className = "status " + (kind || "muted");
 }
 
+function setEngineDot(mode) {
+  const el = $("#engine-dot");
+  if (!el) return;
+  el.className = "engine-dot " + (mode || "offline");
+  el.title =
+    mode === "online"
+      ? "Local engine online"
+      : mode === "checking"
+        ? "Checking local engine…"
+        : "Local engine offline";
+}
+
+function oneLinerInstall() {
+  return `curl -fsSL ${ENGINE.installRaw} | bash`;
+}
+
+function fillEngineSetupLinks() {
+  const zip = $("#btn-download-zip");
+  if (zip) {
+    zip.href = ENGINE.zip;
+    zip.setAttribute("download", "bone-voyage-engine.zip");
+  }
+  const repo = $("#link-repo");
+  if (repo) repo.href = ENGINE.repo;
+  const ol = $("#install-oneliner");
+  if (ol) ol.textContent = oneLinerInstall();
+  const local = $("#install-local");
+  if (local) {
+    local.textContent =
+      "cd bone-voyage-main && bash scripts/install-engine.sh";
+  }
+  const start = $("#start-cmd");
+  if (start) start.textContent = "~/bone-voyage/start-engine.sh";
+  const apiIn = $("#api-url-input");
+  if (apiIn && !apiIn.value) {
+    apiIn.value = API_BASE || ENGINE.defaultApi;
+  }
+}
+
+function showEngineSetup(show) {
+  const el = $("#engine-setup");
+  if (!el) return;
+  if (show && !setupDismissed) el.classList.remove("hidden");
+  else el.classList.add("hidden");
+}
+
 function setBackendBanner(online) {
   const el = $("#backend-banner");
+  const chip = $("#btn-engine-setup");
+  if (chip) {
+    chip.textContent = online ? "Engine online" : "Get engine";
+    chip.classList.toggle("online", !!online);
+  }
+  setEngineDot(online ? "online" : "offline");
   if (!el) return;
-  if (online || !API_BASE) {
+  if (online) {
+    el.classList.add("hidden");
+    showEngineSetup(false);
+    return;
+  }
+  // Same-origin local serve: short hint only
+  if (!API_BASE) {
     el.classList.add("hidden");
     return;
   }
   el.classList.remove("hidden");
   el.innerHTML =
-    `<strong>Local engine offline.</strong> This page is static (GitHub Pages). ` +
-    `On your machine run <code>opengem serve</code> then refresh — UI talks to ` +
-    `<code>${API_BASE}</code>. Data never leaves your computer.`;
+    `<span><strong>Local engine offline.</strong> UI is static; compute runs on your machine at ` +
+    `<code>${API_BASE}</code>.</span>` +
+    `<button type="button" class="btn btn-inline primary" id="btn-banner-setup">Download &amp; start engine</button>`;
+  $("#btn-banner-setup")?.addEventListener("click", () => {
+    setupDismissed = false;
+    showEngineSetup(true);
+  });
+}
+
+function setPollStatus(msg, kind = "") {
+  const el = $("#engine-poll-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "engine-poll" + (kind ? " " + kind : "");
+}
+
+async function probeEngine() {
+  setEngineDot("checking");
+  try {
+    const res = await fetch(apiUrl("/api/health"), { cache: "no-store" });
+    if (!res.ok) throw new Error(res.statusText);
+    const h = await res.json();
+    return h;
+  } catch (e) {
+    setEngineDot("offline");
+    throw e;
+  }
+}
+
+async function onEngineOnline(h, { first = false } = {}) {
+  engineOnline = true;
+  setBackendBanner(true);
+  setPollStatus(
+    `Connected — ${h.product || "Bone Voyage"} ${h.version || ""}`.trim(),
+    "ok"
+  );
+  const product = h.product || "Bone Voyage";
+  setStatus(`${product} ${h.version || ""} · drop a CT to auto-split bones`, "ok");
+  if (first) {
+    setDebug(
+      "Ready.\n\n1. Drop a CT — we analyze ALL slices\n" +
+        "2. Bones appear as Bone 1, Bone 2, … with checkboxes\n" +
+        "3. Hide/unhide in 3D · checked bones go to Generate\n" +
+        (API_BASE ? `\nAPI: ${API_BASE}\n` : "")
+    );
+    try {
+      const d = await refreshServerDebug();
+      try {
+        await loadBonesFromServer();
+      } catch (_) {
+        if (d?.has_preview_file || d?.has_surface_file) {
+          await loadPreviewFromServer();
+        }
+      }
+    } catch (_) {}
+  }
+  stopEnginePoll();
+}
+
+function onEngineOffline({ showSetup = true } = {}) {
+  engineOnline = false;
+  setBackendBanner(false);
+  setStatus(
+    API_BASE
+      ? `Engine offline — download & start local compute`
+      : "Server not reachable",
+    "error"
+  );
+  setDebug(
+    API_BASE
+      ? `This page is the UI only.\n\n` +
+          `1. Download the engine (button or zip from GitHub)\n` +
+          `2. Install:  ${oneLinerInstall()}\n` +
+          `3. Start:    ~/bone-voyage/start-engine.sh\n` +
+          `4. Stay on this tab — it auto-connects to ${API_BASE}\n`
+      : "Could not reach /api/health. Is opengem serve running?"
+  );
+  if (showSetup && API_BASE) showEngineSetup(true);
+  startEnginePoll();
+}
+
+function startEnginePoll() {
+  if (enginePollTimer || engineOnline) return;
+  let n = 0;
+  enginePollTimer = setInterval(async () => {
+    n += 1;
+    setPollStatus(`Listening for engine at ${API_BASE || "(same origin)"}… (#${n})`);
+    try {
+      const h = await probeEngine();
+      await onEngineOnline(h, { first: true });
+      setPollStatus("Engine online — you can drop a CT.", "ok");
+    } catch (_) {
+      /* keep waiting */
+    }
+  }, 2500);
+}
+
+function stopEnginePoll() {
+  if (enginePollTimer) {
+    clearInterval(enginePollTimer);
+    enginePollTimer = null;
+  }
+}
+
+function wireEngineSetupUi() {
+  fillEngineSetupLinks();
+
+  $("#btn-engine-setup")?.addEventListener("click", () => {
+    if (engineOnline) {
+      setStatus("Local engine is already online", "ok");
+      return;
+    }
+    setupDismissed = false;
+    showEngineSetup(true);
+  });
+
+  $("#btn-dismiss-setup")?.addEventListener("click", () => {
+    setupDismissed = true;
+    showEngineSetup(false);
+  });
+
+  $("#btn-check-engine")?.addEventListener("click", async () => {
+    setPollStatus("Checking…");
+    try {
+      const h = await probeEngine();
+      await onEngineOnline(h, { first: true });
+    } catch (e) {
+      setPollStatus(
+        `Still offline (${e.message || "unreachable"}). Is start-engine.sh running?`,
+        "err"
+      );
+      setEngineDot("offline");
+    }
+  });
+
+  $("#btn-apply-api")?.addEventListener("click", () => {
+    const v = ($("#api-url-input")?.value || "").trim().replace(/\/$/, "");
+    if (!v) return;
+    API_BASE = v;
+    const url = new URL(window.location.href);
+    url.searchParams.set("api", v);
+    window.history.replaceState({}, "", url);
+    setPollStatus(`API set to ${v} — checking…`);
+    engineOnline = false;
+    stopEnginePoll();
+    startEnginePoll();
+    probeEngine()
+      .then((h) => onEngineOnline(h, { first: true }))
+      .catch(() => onEngineOffline({ showSetup: true }));
+  });
+
+  document.querySelectorAll(".btn-copy").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-copy");
+      const code = id ? document.getElementById(id) : null;
+      const text = code?.textContent || "";
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = "Copy";
+          btn.classList.remove("copied");
+        }, 1500);
+      } catch (_) {
+        btn.textContent = "Select & copy";
+      }
+    });
+  });
 }
 
 function setDebug(obj, kind = "") {
@@ -1031,43 +1269,8 @@ $("#btn-redetect")?.addEventListener("click", async () => {
   }
 });
 
-api("/api/health")
-  .then(async (h) => {
-    setBackendBanner(true);
-    const product = h.product || "Bone Voyage";
-    setStatus(`${product} ${h.version} · drop a CT to auto-split bones`, "ok");
-    setDebug(
-      "Ready.\n\n1. Drop a CT — we analyze ALL slices\n" +
-        "2. Bones appear as Bone 1, Bone 2, … with checkboxes\n" +
-        "3. Hide/unhide in 3D · checked bones go to Generate\n" +
-        (API_BASE ? `\nAPI: ${API_BASE}\n` : "")
-    );
-    const d = await refreshServerDebug();
-    try {
-      await loadBonesFromServer();
-    } catch (_) {
-      if (d?.has_preview_file || d?.has_surface_file) {
-        await loadPreviewFromServer();
-      }
-    }
-  })
-  .catch(() => {
-    setBackendBanner(false);
-    setStatus(
-      API_BASE
-        ? `Engine offline — run opengem serve (${API_BASE})`
-        : "Server not reachable",
-      "error"
-    );
-    setDebug(
-      API_BASE
-        ? `GitHub Pages hosts only the UI.\n\n` +
-            `1. Clone the repo and install:\n` +
-            `   pip install -e ".[dev]"\n` +
-            `2. Start the local engine:\n` +
-            `   opengem serve\n` +
-            `3. Refresh this page — it talks to ${API_BASE}\n` +
-            `   (override with ?api=http://host:port)\n`
-        : "Could not reach /api/health. Is opengem serve running?"
-    );
-  });
+wireEngineSetupUi();
+
+probeEngine()
+  .then((h) => onEngineOnline(h, { first: true }))
+  .catch(() => onEngineOffline({ showSetup: !!API_BASE }));

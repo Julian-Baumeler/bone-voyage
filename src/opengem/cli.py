@@ -14,8 +14,10 @@ def serve(
     port: int = typer.Option(8742, help="Port"),
     reload: bool = typer.Option(False, help="Dev auto-reload"),
 ) -> None:
-    """Start the OpenGEM web server."""
-    typer.echo(f"OpenGEM → http://{host}:{port}")
+    """Start the Bone Voyage / OpenGEM local compute engine."""
+    typer.echo(f"Bone Voyage engine → http://{host}:{port}")
+    typer.echo("Keep this running. The website (GitHub Pages or local UI) will connect.")
+    typer.echo("UI: https://julian-baumeler.github.io/bone-voyage/")
     typer.echo("Research use only. Not for diagnosis or treatment.")
     uvicorn.run("opengem.api.app:app", host=host, port=port, reload=reload)
 
