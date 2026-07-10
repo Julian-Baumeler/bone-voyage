@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenGEM — CT → 3D FE model</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="app simple">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">OpenGEM</span>
+        <span class="tag">CT → FE model · local only</span>
+      </div>
+      <span id="status" class="status muted">Ready</span>
+    </header>
+    <div class="disclaimer">
+      Research use only. Green paint = <strong>only that region</strong> (grows a few mm in 3D).
+      Not the whole hip/femur. Paint on 1+ slices if you need more coverage.
+    </div>
+
+    <main class="simple-layout">
+      <aside class="sidebar compact">
+        <section class="panel">
+          <h2>1. Drop CT</h2>
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="file-ct" accept=".nrrd,.nii,.nii.gz,.mha,.mhd" hidden />
+            <span id="drop-label">Drop NRRD / NIfTI here<br/><small>or click to browse</small></span>
+          </label>
+          <div id="ct-info" class="info-box muted">No CT yet</div>
+        </section>
+
+        <section class="panel" id="panel-bones">
+          <h2>2. Bones (auto)</h2>
+          <p class="help">
+            After import we detect separate bright bones as Bone 1, Bone 2, …
+            Toggle checkboxes to show/hide in 3D. Checked bones are used for FE generate.
+          </p>
+          <div id="bones-status" class="info-box muted">Drop a CT to auto-detect bones…</div>
+          <div id="bones-list" class="bones-list"></div>
+          <button type="button" class="btn" id="btn-redetect">Re-detect bones</button>
+        </section>
+
+        <section class="panel">
+          <h2>2b. Optional brush</h2>
+          <p class="help">
+            Optional fine control. Prefer auto bones above when possible.
+          </p>
+          <div class="brush-tools">
+            <button type="button" class="tool active" data-tool="include">● Keep</button>
+            <button type="button" class="tool" data-tool="exclude">● Exclude</button>
+            <button type="button" class="tool" data-tool="erase">○ Erase</button>
+          </div>
+          <label>Brush <input type="range" id="brush-size" min="3" max="50" value="16" /></label>
+          <label>Grow around paint (mm)
+            <input type="number" id="grow-radius" value="12" min="1" max="40" step="1" />
+          </label>
+          <label>Selection
+            <select id="grow-mode">
+              <option value="local" selected>Near paint only (recommended)</option>
+              <option value="paint_only">Paint voxels only (tightest)</option>
+              <option value="component">Whole connected bone (old / greedy)</option>
+            </select>
+          </label>
+          <button type="button" class="btn" id="btn-clear-paint">Clear paint</button>
+        </section>
+
+        <section class="panel">
+          <h2>3. Generate</h2>
+          <label>Bone HU min <input type="number" id="hu-min" value="200" step="10" /></label>
+          <label>Mesh size (mm) <input type="number" id="cell-size" value="4" step="0.5" min="1" /></label>
+          <button class="btn primary big" id="btn-generate">Generate 3D model</button>
+          <div id="progress-wrap" class="progress-wrap hidden">
+            <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+            <div id="progress-label" class="progress-label">0%</div>
+            <ol id="progress-steps" class="progress-steps">
+              <li data-step="load">Load CT</li>
+              <li data-step="mask">Bone mask</li>
+              <li data-step="surface">Surface</li>
+              <li data-step="volume">Volume mesh</li>
+              <li data-step="material">Materials</li>
+              <li data-step="done">Done</li>
+            </ol>
+          </div>
+          <div id="downloads" class="downloads"></div>
+        </section>
+
+        <section class="panel debug-panel">
+          <h2>Debug log</h2>
+          <button type="button" class="btn" id="btn-refresh-debug">Refresh debug from server</button>
+          <button type="button" class="btn" id="btn-load-3d">Load last 3D preview</button>
+          <pre id="debug" class="debug">Waiting…</pre>
+        </section>
+      </aside>
+
+      <section class="viewport">
+        <div class="viewer-tabs">
+          <button class="tab active" data-view="slice">CT + brush</button>
+          <button class="tab" data-view="mesh">3D model</button>
+        </div>
+        <div id="view-slice" class="view">
+          <div class="canvas-wrap">
+            <canvas id="slice-canvas"></canvas>
+          </div>
+          <div class="slice-controls">
+            <input type="range" id="slice-z" min="0" max="0" value="0" />
+            <span id="slice-label">z = 0</span>
+            <label>WW <input type="number" id="ww" value="2000" style="width:4.5rem" /></label>
+            <label>WL <input type="number" id="wl" value="300" style="width:4.5rem" /></label>
+          </div>
+        </div>
+        <div id="view-mesh" class="view hidden">
+          <div class="canvas-wrap">
+            <canvas id="mesh-canvas"></canvas>
+            <div id="mesh-empty" class="mesh-empty hidden">
+              No 3D model yet. Load a CT and click <strong>Generate 3D model</strong>.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>
