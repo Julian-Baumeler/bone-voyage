@@ -185,16 +185,8 @@ async function onEngineOnline(h, { first = false } = {}) {
         "3. Hide/unhide in 3D · checked bones go to Generate\n" +
         (API_BASE ? `\nAPI: ${API_BASE}\n` : "")
     );
-    try {
-      const d = await refreshServerDebug();
-      try {
-        await loadBonesFromServer();
-      } catch (_) {
-        if (d?.has_preview_file || d?.has_surface_file) {
-          await loadPreviewFromServer();
-        }
-      }
-    } catch (_) {}
+    // Fresh session after engine start — do not auto-restore old femur/hip.
+    // User drops a CT to begin.
   }
   stopEnginePoll();
 }

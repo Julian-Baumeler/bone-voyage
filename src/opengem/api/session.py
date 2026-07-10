@@ -36,34 +36,17 @@ class Session:
         return self._id
 
     def ensure(self) -> str:
+        """Return current in-memory session, or create an empty one.
+
+        Does NOT restore old CTs from disk — that made the last femur/hip
+        appear "preloaded" every time the engine started. Prior sessions
+        remain under ~/.opengem/projects/ for debug only.
+        """
         if self._id and (self.ws.root / self._id).exists():
-            return self._id
-        # Reuse most recent session that has a CT (survives server restart)
-        restored = self._find_latest_with_ct()
-        if restored:
-            self._id = restored
             return self._id
         meta = self.ws.create(SESSION_NAME)
         self._id = meta.id
         return self._id
-
-    def _find_latest_with_ct(self) -> str | None:
-        try:
-            dirs = sorted(
-                [p for p in self.ws.root.iterdir() if p.is_dir() and (p / "meta.json").exists()],
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-            for p in dirs:
-                try:
-                    meta = self.ws.get(p.name)
-                    if "ct" in meta.files:
-                        return p.name
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        return None
 
     def reset(self) -> str:
         # Keep old sessions on disk for debug; just open a fresh one
