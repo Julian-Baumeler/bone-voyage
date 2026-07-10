@@ -5,7 +5,7 @@ from __future__ import annotations
 import typer
 import uvicorn
 
-app = typer.Typer(help="OpenGEM — CT to FE models (web successor to MITK-GEM)")
+app = typer.Typer(help="Bone Voyage / OpenGEM — CT to FE models (local web app)")
 
 
 @app.command()

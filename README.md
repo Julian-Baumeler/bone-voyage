@@ -4,8 +4,6 @@
 
 **Bone Voyage** is a local-first web app: drop a CT, auto-split bright anatomy into **Bone 1, Bone 2, …**, toggle them on a 3D view, and build FE-ready meshes with material mapping.
 
-It is a modern, macOS-friendly successor spirit to [MITK-GEM](https://github.com/araex/mitk-gem) (2017) — without the SuperBuild archaeology.
-
 **Live UI (GitHub Pages):** [julian-baumeler.github.io/bone-voyage](https://julian-baumeler.github.io/bone-voyage/)
 
 The hosted page is the real Three.js UI. Processing stays on your machine — the page can **download the local engine**, you start it once, and it auto-connects to `http://127.0.0.1:8742`.
@@ -67,7 +65,7 @@ cp src/opengem/web/assets/* docs/assets/
 
 ## License
 
-GPL-3.0-or-later (see `pyproject.toml`). Inspired by MITK-GEM (ZHAW / Pauchard et al.); this is a clean reimplementation, not a fork.
+GPL-3.0-or-later (see `pyproject.toml`).
 
 ## Name
 
